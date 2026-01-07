@@ -432,7 +432,7 @@ def main():
                         processed += 1
                         progress = int((processed / total_ascs) * 100)
                         progress_bar.progress(progress)
-                        status_text.text(f"⏳ Processing {asc_name}... ({processed}/{total_ascs})")
+                        status_text.text(f"Processing {asc_name}... ({processed}/{total_ascs})")
                     
                     # Create ZIP file
                     zip_buffer = io.BytesIO()
@@ -462,7 +462,7 @@ def main():
                     zip_filename = f"{selected_brand}_Invoices_{timestamp}.zip"
                     
                     st.download_button(
-                        label="📥 Download All Invoices (ZIP)",
+                        label="Download All Invoices (ZIP)",
                         data=zip_buffer,
                         file_name=zip_filename,
                         mime="application/zip",
