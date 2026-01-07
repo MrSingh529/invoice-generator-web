@@ -61,9 +61,7 @@ class InvoiceProcessor:
         return results
     
     def _generate_single_invoice(self, asc_name, asc_data):
-        """Generate invoice for a single ASC - returns bytes"""
-        from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Font, Border, Side
+        """Generate invoice for a single ASC"""
         
         # Extract ASC information (first record's details)
         first_record = asc_data.iloc[0]
@@ -79,7 +77,7 @@ class InvoiceProcessor:
             'gst_no': first_record.get('GST No.', ''),
             
             # Invoice Details
-            'invoice_number': f"INV-{datetime.now().strftime('%Y%m%d')}-{asc_name[:5]}",
+            'invoice_number': first_record.get('Invoice Number', f"INV-{datetime.now().strftime('%Y%m%d')}-{asc_name[:5]}"),
             'invoice_date': datetime.now().strftime('%d-%b-%Y'),
             
             # Bill To (fixed for Amazon)
@@ -95,7 +93,7 @@ class InvoiceProcessor:
             'totals': self._calculate_totals(asc_data)
         }
         
-        # Generate Excel invoice in memory
+        # Generate Excel invoice
         return self._create_excel_invoice(asc_name, invoice_data)
     
     def _extract_items(self, asc_data):
