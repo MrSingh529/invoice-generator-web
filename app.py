@@ -43,7 +43,7 @@ st.markdown("""
 
 def main():
     # Header
-    st.markdown('<h1 class="main-header">📊 Invoice Automation System</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Invoice Automation System</h1>', unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
@@ -105,7 +105,7 @@ def main():
     
     with col2:
         # Statistics panel
-        st.subheader("📈 Statistics")
+        st.subheader("Statistics")
         
         if uploaded_file:
             try:
@@ -228,7 +228,7 @@ def main():
                     st.error(f"Error generating invoices: {str(e)}")
     
     else:
-        st.info("👆 Please upload an Excel file to begin")
+        st.info("Please upload an Excel file to begin")
 
 if __name__ == "__main__":
     main()
