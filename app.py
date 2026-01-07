@@ -38,6 +38,19 @@ st.markdown("""
         padding: 15px;
         text-align: center;
     }
+    .app-footer {
+        text-align: center;
+        padding: 20px 0;
+        margin-top: 40px;
+        color: #6c757d;
+        font-size: 0.9rem;
+        border-top: 1px solid #e9ecef;
+    }
+    .app-footer span {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.85rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -229,6 +242,14 @@ def main():
     
     else:
         st.info("Please upload an Excel file to begin")
+
+    # Footer
+    st.markdown("""
+        <div class="app-footer">
+            <strong>Crafted with precision by Harpinder Singh</strong>
+            <span>© RV Solutions</span>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
