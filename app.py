@@ -60,8 +60,15 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://img.icons8.com/color/96/000000/invoice.png", width=100)
-        st.title("Settings")
+        st.image(
+        "assets/rv_solutions_logo.png",
+        use_container_width=True
+    )
+
+        st.markdown(
+            "<h2 style='text-align: center;'>Settings</h2>",
+            unsafe_allow_html=True
+        )
         
         # Brand selection
         selected_brand = st.selectbox(
