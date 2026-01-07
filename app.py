@@ -108,9 +108,9 @@ def main():
             try:
                 # Preview data
                 df = pd.read_excel(uploaded_file)
-                st.success(f"✅ File loaded successfully! ({len(df)} rows, {len(df.columns)} columns)")
+                st.success(f"File loaded successfully! ({len(df)} rows, {len(df.columns)} columns)")
                 
-                with st.expander("📊 Data Preview", expanded=False):
+                with st.expander("Data Preview", expanded=False):
                     st.dataframe(df.head(), use_container_width=True)
                     
                     # Show missing columns
@@ -118,7 +118,7 @@ def main():
                     if missing_cols:
                         st.warning(f"⚠️ Missing columns: {', '.join(missing_cols)}")
                     else:
-                        st.success("✅ All required columns present")
+                        st.success("All required columns present")
             
             except Exception as e:
                 st.error(f"Error reading file: {str(e)}")
