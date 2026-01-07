@@ -18,39 +18,129 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #2c3e50;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .success-box {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 5px;
-        padding: 20px;
-        margin: 20px 0;
-    }
-    .stat-box {
-        background-color: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 5px;
-        padding: 15px;
-        text-align: center;
-    }
-    .app-footer {
-        text-align: center;
-        padding: 20px 0;
-        margin-top: 40px;
-        color: #6c757d;
-        font-size: 0.9rem;
-        border-top: 1px solid #e9ecef;
-    }
-    .app-footer span {
-        display: block;
-        margin-top: 5px;
-        font-size: 0.85rem;
-    }
+
+/* Global */
+html, body, [class*="css"] {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Helvetica, Arial, sans-serif;
+}
+
+/* App background */
+.stApp {
+    background: linear-gradient(180deg, #eef2f7 0%, #f9fbfd 100%);
+}
+
+/* Main header */
+.main-header {
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #111827;
+}
+
+/* Sidebar glass */
+section[data-testid="stSidebar"] {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Cards / containers */
+.block-container {
+    padding-top: 2rem;
+}
+
+/* Glass card */
+.glass-card {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.4);
+}
+
+/* Success box */
+.success-box {
+    background: rgba(52, 199, 89, 0.12);
+    border: 1px solid rgba(52, 199, 89, 0.35);
+    border-radius: 16px;
+    padding: 22px;
+    margin: 24px 0;
+    backdrop-filter: blur(14px);
+}
+
+/* Metrics */
+[data-testid="metric-container"] {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(14px);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.07);
+    border: 1px solid rgba(255,255,255,0.5);
+}
+
+/* Buttons */
+.stButton > button {
+    border-radius: 16px;
+    padding: 0.75rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: linear-gradient(180deg, #0a84ff, #0060df);
+    color: white;
+    border: none;
+    box-shadow: 0 8px 18px rgba(10,132,255,0.35);
+    transition: all 0.2s ease-in-out;
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 26px rgba(10,132,255,0.45);
+}
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    background: rgba(255,255,255,0.65);
+    border-radius: 16px;
+    padding: 18px;
+    border: 1px dashed rgba(0,0,0,0.15);
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+    font-weight: 600;
+}
+
+/* Tables */
+.stDataFrame {
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 28px 0;
+    margin-top: 60px;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.app-footer span {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+}
+
+/* Progress bar */
+.stProgress > div > div {
+    background: linear-gradient(90deg, #0a84ff, #64d2ff);
+    border-radius: 8px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -97,12 +187,14 @@ def main():
     
     with col1:
         # File upload
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.subheader("📂 Upload Raw Data")
         uploaded_file = st.file_uploader(
             "Choose an Excel file",
             type=['xlsx', 'xls'],
             help="Upload the raw billing data Excel file"
         )
+        st.markdown('</div>', unsafe_allow_html=True)
         
         if uploaded_file:
             try:
@@ -125,6 +217,7 @@ def main():
     
     with col2:
         # Statistics panel
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.subheader("Statistics")
         
         if uploaded_file:
@@ -140,6 +233,7 @@ def main():
                     st.metric("Total ASCs", total_ascs)
                     st.metric("Total Records", total_records)
                     st.metric("Total Earning", f"₹{total_earning:,.2f}")
+                    st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.warning(f"ASC column '{asc_column}' not found")
             except:
