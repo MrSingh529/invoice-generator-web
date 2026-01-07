@@ -10,12 +10,12 @@ from config.brand_configs import BRAND_CONFIGS
 # Page configuration
 st.set_page_config(
     page_title="Invoice Generator Pro",
-    page_icon="📊",
+    page_icon="📄",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# iOS-inspired Custom CSS
+# Custom CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
@@ -309,7 +309,7 @@ st.markdown("""
 
 def main():
     # Header
-    st.markdown('<h1 class="main-header">📊 Invoice Automation System</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Invoice Automation System</h1>', unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
@@ -319,7 +319,7 @@ def main():
         )
 
         st.markdown(
-            "<h2 style='text-align: center; margin-top: 1.5rem;'>⚙️ Settings</h2>",
+            "<h2 style='text-align: center; margin-top: 1.5rem;'>Settings</h2>",
             unsafe_allow_html=True
         )
         
@@ -331,16 +331,16 @@ def main():
         )
         
         st.markdown("---")
-        st.markdown("### 📋 Instructions")
+        st.markdown("### Instructions")
         st.markdown("""
-        1. 🎯 Select your brand
-        2. 📤 Upload the raw data Excel file
-        3. ⚡ Click Generate Invoices
-        4. 💾 Download all invoices as ZIP
+        1. Select your brand
+        2. Upload the raw data Excel file
+        3. Click Generate Invoices
+        4. Download all invoices as ZIP
         """)
         
         st.markdown("---")
-        st.markdown("### 📊 Required Columns")
+        st.markdown("### Required Columns")
         config = BRAND_CONFIGS[selected_brand]
         for col in config['required_columns']:
             st.markdown(f"• {col}")
@@ -396,9 +396,9 @@ def main():
                 else:
                     st.warning(f"⚠️ ASC column '{asc_column}' not found")
             except:
-                st.info("📊 Upload file to see statistics")
+                st.info("Upload file to see statistics")
         else:
-            st.info("📊 Upload file to see statistics")
+            st.info("Upload file to see statistics")
     
     # Generate button
     st.markdown("---")
@@ -407,7 +407,7 @@ def main():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             generate_btn = st.button(
-                "⚡ Generate All Invoices",
+                "Generate All Invoices",
                 type="primary",
                 use_container_width=True,
                 help="Click to generate invoices for all ASCs"
@@ -501,7 +501,7 @@ def main():
                     st.error(f"❌ Error generating invoices: {str(e)}")
     
     else:
-        st.info("👆 Please upload an Excel file to begin")
+        st.info("Please upload an Excel file to begin")
 
     # Footer
     st.markdown("""
