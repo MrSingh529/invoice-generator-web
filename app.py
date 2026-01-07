@@ -390,9 +390,9 @@ def main():
                     total_records = len(df)
                     total_earning = df['Earning'].sum() if 'Earning' in df.columns else 0
                     
-                    st.metric("🏢 Total ASCs", total_ascs)
-                    st.metric("📋 Total Records", total_records)
-                    st.metric("💰 Total Earning", f"₹{total_earning:,.2f}")
+                    st.metric("Total ASCs", total_ascs)
+                    st.metric("Total Records", total_records)
+                    st.metric("Total Earning", f"₹{total_earning:,.2f}")
                 else:
                     st.warning(f"⚠️ ASC column '{asc_column}' not found")
             except:
@@ -414,7 +414,7 @@ def main():
             )
         
         if generate_btn:
-            with st.spinner("🔄 Processing invoices..."):
+            with st.spinner("Processing invoices..."):
                 try:
                     # Process invoices
                     processor = InvoiceProcessor(selected_brand, config)
@@ -452,7 +452,7 @@ def main():
                     # Success message
                     st.markdown("""
                     <div class="success-box">
-                        <h3>✅ Invoice Generation Complete!</h3>
+                        <h3>Invoice Generation Complete!</h3>
                         <p>Successfully generated invoices for all ASCs. Ready to download!</p>
                     </div>
                     """, unsafe_allow_html=True)
@@ -471,7 +471,7 @@ def main():
                     )
                     
                     # Summary table
-                    st.subheader("📋 Generation Summary")
+                    st.subheader("Generation Summary")
                     summary_data = []
                     total_records = 0
                     total_earning = 0
@@ -491,14 +491,14 @@ def main():
                     # Totals
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("🏢 Total ASCs", len(results))
+                        st.metric("Total ASCs", len(results))
                     with col2:
-                        st.metric("📋 Total Records", total_records)
+                        st.metric("Total Records", total_records)
                     with col3:
-                        st.metric("💰 Total Amount", f"₹{total_earning:,.2f}")
+                        st.metric("Total Amount", f"₹{total_earning:,.2f}")
                     
                 except Exception as e:
-                    st.error(f"❌ Error generating invoices: {str(e)}")
+                    st.error(f"X Error generating invoices: {str(e)}")
     
     else:
         st.info("Please upload an Excel file to begin")
