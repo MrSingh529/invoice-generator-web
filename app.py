@@ -396,7 +396,7 @@ def main():
                         amount_column = 'Final Amount'
                     elif selected_brand == 'LifeLong':
                         amount_column = 'Final Amount'
-                    elif selected_brand == 'Candor CRM':
+                    elif selected_brand == 'CandorCRM':
                         amount_column = 'Amount'
                     else:
                         amount_column = 'Earning'

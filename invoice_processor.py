@@ -67,7 +67,7 @@ class InvoiceProcessor:
         first_record = asc_data.iloc[0]
         
         # For Candor CRM, don't include Owner Name and Contact No. in ASC details
-        if self.brand_name == 'Candor CRM':
+        if self.brand_name == 'CandorCRM':
             asc_details_text = f"{asc_name}\n{first_record.get('Address', '')}"
         else:
             asc_details_text = f"{asc_name}\n{first_record.get('Address', '')}\nName: {first_record.get('Owner Name', '')} Mob. No.: {first_record.get('Contact No.', '')}"
@@ -274,7 +274,7 @@ class InvoiceProcessor:
                     'amount': round(total_amount, 2)
                 })
         
-        elif self.brand_name == 'Candor CRM':
+        elif self.brand_name == 'CandorCRM':
             # Candor CRM logic - group by Claim Status column
             claim_status_column = 'Claim Status'
             

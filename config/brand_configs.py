@@ -76,7 +76,7 @@ BRAND_CONFIGS = {
             'add_spacing_rows': True
         }
     },
-    'Candor CRM': {
+    'CandorCRM': {
         'asc_column': 'ASC Name',
         'required_columns': [
             'ASC Name', 'Claim Status', 'Amount',
