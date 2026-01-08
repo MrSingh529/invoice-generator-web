@@ -298,9 +298,11 @@ class InvoiceProcessor:
                         # Get the first amount as rate (assuming same rate for all rows in same group)
                         rate = float(group['Amount'].iloc[0]) if len(group) > 0 else 0.0
                     
-                    # For Candor CRM, we return rate separately
+                    # For Candor CRM, we need to include sac_code in the dictionary
+                    # even though it's not shown in the table headers
                     items.append({
                         'description': claim_str,
+                        'sac_code': '998729',  # Fixed SAC code for Candor CRM
                         'quantity': total_qty,
                         'rate': round(rate, 2),
                         'amount': round(total_amount, 2)
@@ -318,22 +320,11 @@ class InvoiceProcessor:
                 
                 items.append({
                     'description': 'Services',
+                    'sac_code': '998729',  # Fixed SAC code for Candor CRM
                     'quantity': total_qty,
                     'rate': round(rate, 2),
                     'amount': round(total_amount, 2)
                 })
-        
-        else:
-            # Default fallback for any other brand
-            total_qty = len(asc_data)
-            total_amount = 0.0
-            
-            items.append({
-                'description': 'Services',
-                'sac_code': '998715',
-                'quantity': total_qty,
-                'amount': round(total_amount, 2)
-            })
         
         return items
     
@@ -468,7 +459,7 @@ class InvoiceProcessor:
         from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
         
         # For Candor CRM, use a completely different format
-        if invoice_data.get('brand') == 'Candor CRM':
+        if invoice_data.get('brand') == 'CandorCRM':
             return self._create_candor_crm_invoice(asc_name, invoice_data)
         
         # Create a new workbook in memory
