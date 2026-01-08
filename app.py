@@ -465,14 +465,12 @@ def main():
                     zip_buffer = io.BytesIO()
                     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
                         for asc_name, data in results.items():
-                            # Add invoice
-                            safe_name = "".join(c for c in asc_name if c.isalnum() or c in (' ', '-', '_')).strip()
-                            invoice_filename = f"Invoice_{safe_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                            zip_file.writestr(invoice_filename, data['invoice'])
-                            
-                            # Add raw data
-                            raw_filename = f"RawData_{safe_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                            zip_file.writestr(raw_filename, data['raw_data'])
+                            safe_name = "".join(
+                                c for c in asc_name if c.isalnum() or c in (' ', '-', '_')
+                            ).strip()
+
+                            excel_filename = f"{safe_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                            zip_file.writestr(excel_filename, data['invoice'])
                     
                     zip_buffer.seek(0)
                     

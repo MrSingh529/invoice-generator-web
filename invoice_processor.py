@@ -13,50 +13,39 @@ class InvoiceProcessor:
         self.config = config
         
     def process_invoices(self, uploaded_file):
-        """Process uploaded file and return dictionary of invoices"""
-        
-        # Read uploaded file
+        """Process uploaded file and return dictionary of invoices (single Excel per ASC)"""
         try:
             df = pd.read_excel(uploaded_file)
         except Exception as e:
             raise Exception(f"Error reading Excel file: {str(e)}")
-        
-        # Validate required columns
+
         required_cols = self.config['required_columns']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             raise Exception(f"Missing required columns: {missing_cols}")
-        
-        # Group by ASC (using ASC Name column)
+
         asc_column = self.config['asc_column']
         if asc_column not in df.columns:
             raise Exception(f"ASC column '{asc_column}' not found in data")
-        
+
         asc_groups = df.groupby(asc_column)
-        
         results = {}
-        total_ascs = len(asc_groups)
-        
-        for i, (asc_name, asc_data) in enumerate(asc_groups, 1):
-            # Generate invoice for this ASC
-            invoice_bytes = self._generate_single_invoice(asc_name, asc_data)
-            
-            # Create supporting raw data file
-            raw_data_bytes = self._create_supporting_data(asc_name, asc_data)
-            
-            # Calculate totals for summary
-            total_amount = float(asc_data['Earning'].sum()) if 'Earning' in asc_data.columns else 0.0
+
+        for asc_name, asc_data in asc_groups:
+            # ONE Excel file containing Invoice + Raw Data
+            excel_bytes = self._create_invoice_with_raw_data(asc_name, asc_data)
+
+            total_amount = float(asc_data.get('Earning', asc_data.get('Amount', 0)).sum())
             total_cod = float(asc_data['COD'].sum()) if 'COD' in asc_data.columns else 0.0
-            
+
             results[asc_name] = {
-                'invoice': invoice_bytes,
-                'raw_data': raw_data_bytes,
+                'invoice': excel_bytes,
                 'records': len(asc_data),
                 'total_amount': total_amount,
                 'total_cod': total_cod,
                 'invoice_number': f"INV-{datetime.now().strftime('%Y%m%d')}-{asc_name[:5]}"
             }
-            
+
         return results
     
     def _generate_single_invoice(self, asc_name, asc_data):
@@ -1031,9 +1020,45 @@ class InvoiceProcessor:
         output.seek(0)
         return output.getvalue()
     
-    def _create_supporting_data(self, asc_name, asc_data):
-        """Create supporting raw data file - returns bytes"""
-        output = io.BytesIO()
-        asc_data.to_excel(output, index=False, engine='openpyxl')
-        output.seek(0)
-        return output.getvalue()
+    def _create_invoice_with_raw_data(self, asc_name, asc_data):
+        """
+        Creates ONE Excel file with:
+        Sheet 1: Invoice
+        Sheet 2: Raw Data
+        """
+        from openpyxl import load_workbook
+        import pandas as pd
+        import io
+
+        # Step 1: Create invoice sheet (existing logic)
+        invoice_bytes = self._generate_single_invoice(asc_name, asc_data)
+
+        # Step 2: Load invoice workbook from bytes
+        output = io.BytesIO(invoice_bytes)
+        wb = load_workbook(output)
+
+        # Step 3: Add Raw Data sheet
+        ws_raw = wb.create_sheet(title="Raw Data")
+
+        df_raw = asc_data.copy()
+
+        # Write headers
+        for col_idx, col_name in enumerate(df_raw.columns, start=1):
+            ws_raw.cell(row=1, column=col_idx, value=col_name)
+
+        # Write data
+        for row_idx, row in enumerate(df_raw.itertuples(index=False), start=2):
+            for col_idx, value in enumerate(row, start=1):
+                ws_raw.cell(row=row_idx, column=col_idx, value=value)
+
+        # Optional: auto-width
+        for column_cells in ws_raw.columns:
+            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+            ws_raw.column_dimensions[column_cells[0].column_letter].width = min(max_length + 2, 40)
+
+        # Step 4: Save back to bytes
+        final_output = io.BytesIO()
+        wb.save(final_output)
+        final_output.seek(0)
+
+        return final_output.getvalue()
