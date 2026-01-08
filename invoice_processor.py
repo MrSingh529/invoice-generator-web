@@ -92,8 +92,8 @@ class InvoiceProcessor:
             # Brand-specific settings
             'brand': self.brand_name,
             
-            # Check if it's a freelancer (for Harman only)
-            'is_freelancer': self.brand_name == 'Harman' and 'Free Lancer' in str(asc_name),
+            # Check if it's a freelancer (for Harman and LifeLong)
+            'is_freelancer': (self.brand_name == 'Harman' or self.brand_name == 'LifeLong') and 'Free Lancer' in str(asc_name),
             
             # Totals
             'totals': self._calculate_totals(asc_data, self.brand_name, asc_name)
@@ -267,6 +267,18 @@ class InvoiceProcessor:
                     'quantity': total_qty,
                     'amount': round(total_amount, 2)
                 })
+        
+        else:
+            # Default fallback for any other brand
+            total_qty = len(asc_data)
+            total_amount = 0.0
+            
+            items.append({
+                'description': 'Services',
+                'sac_code': '998715',
+                'quantity': total_qty,
+                'amount': round(total_amount, 2)
+            })
         
         return items
     
@@ -578,7 +590,7 @@ class InvoiceProcessor:
             # Add spacing rows after each item for LifeLong brand only
             if invoice_data.get('brand') == 'LifeLong' and idx < len(items) - 1:
                 # Add 2-3 empty rows without borders for spacing
-                spacing_rows = 2  # You can change this to 3 if you want 3 rows
+                spacing_rows = 3
                 
                 for _ in range(spacing_rows):
                     for col in range(1, 5):  # Columns A to D
