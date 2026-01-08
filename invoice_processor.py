@@ -308,7 +308,7 @@ class InvoiceProcessor:
     def _create_excel_invoice(self, asc_name, invoice_data):
         """Create properly formatted Excel invoice in memory - returns bytes"""
         from openpyxl import Workbook
-        from openpyxl.styles import Alignment, Font, Border, Side
+        from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
         
         # Create a new workbook in memory
         wb = Workbook()
@@ -331,6 +331,11 @@ class InvoiceProcessor:
             bottom=Side(style='thin')
         )
         
+        # Define light peach color fill
+        peach_fill = PatternFill(start_color='FFFFE5CC',  # Light peach color
+                                end_color='FFFFE5CC',
+                                fill_type='solid')
+        
         # ===== INVOICE TITLE BASED ON BRAND =====
         if invoice_data.get('brand') == 'Harman':
             invoice_title = "Bill of Supply"
@@ -341,9 +346,11 @@ class InvoiceProcessor:
         ws['A1'] = invoice_title
         ws['A1'].font = Font(bold=True, size=14)
         ws['A1'].alignment = center_align
-        # Apply border to all cells in merged range
+        # Apply border and peach fill to all cells in merged range
         for col in ['A', 'B', 'C', 'D']:
-            ws[f'{col}1'].border = thin_border
+            cell = ws[f'{col}1']
+            cell.border = thin_border
+            cell.fill = peach_fill
         
         # ===== ASC DETAILS SECTION =====
         asc_details_text = f"{invoice_data['asc_name']}\n{invoice_data['address']}\nName: {invoice_data['owner_name']} Mob. No.: {invoice_data['contact_no']}"
@@ -428,13 +435,14 @@ class InvoiceProcessor:
         for col in ['A', 'B', 'C', 'D']:
             ws[f'{col}10'].border = thin_border
         
-        # ===== TABLE HEADERS WITH BORDERS =====
+        # ===== TABLE HEADERS WITH BORDERS AND PEACH FILL =====
         headers = ["Description", "SAC Code", "Qty", "Amount"]
         for col_idx, header in enumerate(headers, start=1):
             cell = ws.cell(row=11, column=col_idx)
             cell.value = header
             cell.font = Font(bold=True)
             cell.border = thin_border
+            cell.fill = peach_fill  # Add peach fill to header row
             if header == "Amount":
                 cell.alignment = right_align
             elif header == "Qty":
@@ -535,21 +543,26 @@ class InvoiceProcessor:
         ws.cell(row=gst_start+2, column=4, value="-").alignment = center_align
         ws.cell(row=gst_start+2, column=4).border = thin_border
         
-        # Invoice Amount Row
+        # Invoice Amount Row - WITH PEACH FILL
         invoice_row = gst_start + 3
         ws.merge_cells(f'A{invoice_row}:B{invoice_row}')
         invoice_label = ws.cell(row=invoice_row, column=1, value="Invoice Amount")
         invoice_label.font = bold_font
         invoice_label.alignment = right_align
+        invoice_label.fill = peach_fill  # Add peach fill
         for col in ['A', 'B']:
-            ws[f'{col}{invoice_row}'].border = thin_border
+            cell = ws[f'{col}{invoice_row}']
+            cell.border = thin_border
+            cell.fill = peach_fill
         
         ws.cell(row=invoice_row, column=3).border = thin_border
+        ws.cell(row=invoice_row, column=3).fill = peach_fill  # Add peach fill
         invoice_amount_cell = ws.cell(row=invoice_row, column=4, value=invoice_data['totals']['invoice_amount'])
         invoice_amount_cell.font = bold_font
         invoice_amount_cell.alignment = right_align
         invoice_amount_cell.number_format = '#,##0.00'
         invoice_amount_cell.border = thin_border
+        invoice_amount_cell.fill = peach_fill  # Add peach fill
         
         # Only show Advance Received (COD) and Net Amount for Amazon
         if invoice_data.get('brand') != 'Harman':
