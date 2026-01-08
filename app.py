@@ -377,7 +377,7 @@ def main():
                 st.error(f"X Error reading file: {str(e)}")
     
     with col2:
-        # Statistics panel
+        # Statistics Panel
         st.subheader("Statistics")
         
         if uploaded_file:
