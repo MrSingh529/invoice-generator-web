@@ -381,7 +381,7 @@ class InvoiceProcessor:
         invoice_amount_dec = round_decimal(total_amount_dec + igst_dec)
         
         # For Harman, Philips and LifeLong, net amount is same as invoice amount (no COD deduction)
-        if brand_name in ['Harman', 'Philips', 'LifeLong']:
+        if brand_name in ['Harman', 'Philips', 'LifeLong', 'Candor']:
             net_amount_dec = invoice_amount_dec
         else:
             net_amount_dec = round_decimal(invoice_amount_dec - total_cod_dec)
@@ -720,79 +720,101 @@ class InvoiceProcessor:
         
         # ===== TOTAL ROW =====
         total_row = current_row
-        
-        ws.merge_cells(f'A{total_row}:B{total_row}')
-        total_label = ws.cell(row=total_row, column=1, value="")
-        for col in ['A', 'B']:
-            ws[f'{col}{total_row}'].border = thin_border
-        
-        total_qty_cell = ws.cell(row=total_row, column=3, value=invoice_data['totals']['total_qty'])
-        total_qty_cell.border = thin_border
-        total_qty_cell.font = bold_font
-        total_qty_cell.alignment = right_align
-        
-        total_amount_cell = ws.cell(row=total_row, column=4, value=invoice_data['totals']['total_amount'])
-        total_amount_cell.border = thin_border
-        total_amount_cell.font = bold_font
-        total_amount_cell.alignment = right_align
-        total_amount_cell.number_format = '#,##0.00'
+
+        if invoice_data.get('brand') == 'Candor':
+            # For Candor: No merge, just empty first column, then show total in column 2, 3, 4
+            ws.cell(row=total_row, column=1, value="").border = thin_border
+            ws.cell(row=total_row, column=2, value="Total").font = bold_font
+            ws.cell(row=total_row, column=2).border = thin_border
+            ws.cell(row=total_row, column=2).alignment = right_align
+            
+            # Total quantity in column 2 is not shown for Candor, keep column 3 empty or show total qty
+            ws.cell(row=total_row, column=3, value="").border = thin_border
+            
+            # Total amount in column 4
+            total_amount_cell = ws.cell(row=total_row, column=4, value=invoice_data['totals']['total_amount'])
+            total_amount_cell.border = thin_border
+            total_amount_cell.font = bold_font
+            total_amount_cell.alignment = right_align
+            total_amount_cell.number_format = '#,##0.00'
+        else:
+            # For other brands: merge A:B, then qty in C, amount in D
+            ws.merge_cells(f'A{total_row}:B{total_row}')
+            total_label = ws.cell(row=total_row, column=1, value="")
+            for col in ['A', 'B']:
+                ws[f'{col}{total_row}'].border = thin_border
+            
+            total_qty_cell = ws.cell(row=total_row, column=3, value=invoice_data['totals']['total_qty'])
+            total_qty_cell.border = thin_border
+            total_qty_cell.font = bold_font
+            total_qty_cell.alignment = right_align
+            
+            total_amount_cell = ws.cell(row=total_row, column=4, value=invoice_data['totals']['total_amount'])
+            total_amount_cell.border = thin_border
+            total_amount_cell.font = bold_font
+            total_amount_cell.alignment = right_align
+            total_amount_cell.number_format = '#,##0.00'
         
         # ===== GST AND TOTALS SECTION =====
         gst_start = total_row + 1
-        
+
         # IGST Row
-        ws.merge_cells(f'A{gst_start}:B{gst_start}')
+        ws.merge_cells(f'A{gst_start}:C{gst_start}')
         igst_label = ws.cell(row=gst_start, column=1, value="IGST")
         igst_label.font = bold_font
         igst_label.alignment = right_align
-        for col in ['A', 'B']:
+        for col in ['A', 'B', 'C']:
             ws[f'{col}{gst_start}'].border = thin_border
-        
+
         if invoice_data['totals'].get('is_freelancer', False):
-            ws.cell(row=gst_start, column=3, value="-").alignment = right_align
-            ws.cell(row=gst_start, column=3).border = thin_border
             igst_value = "-"
         else:
-            ws.cell(row=gst_start, column=3, value="18%").alignment = right_align
-            ws.cell(row=gst_start, column=3).border = thin_border
             igst_value = invoice_data['totals']['igst']
-        
-        igst_cell = ws.cell(row=gst_start, column=4, value=igst_value)
+
+        igst_cell = ws.cell(row=gst_start, column=4, value="18%" if not invoice_data['totals'].get('is_freelancer', False) else "-")
         igst_cell.alignment = right_align
-        if not invoice_data['totals'].get('is_freelancer', False):
-            igst_cell.number_format = '#,##0.00'
         igst_cell.border = thin_border
-        
-        # CGST Row (show for both brands but with "-")
-        ws.merge_cells(f'A{gst_start+1}:B{gst_start+1}')
-        cgst_label = ws.cell(row=gst_start+1, column=1, value="CGST")
+
+        # Add actual IGST amount in next row if not freelancer
+        if not invoice_data['totals'].get('is_freelancer', False):
+            gst_start += 1
+            ws.merge_cells(f'A{gst_start}:C{gst_start}')
+            ws.cell(row=gst_start, column=1, value="").border = thin_border
+            for col in ['A', 'B', 'C']:
+                ws[f'{col}{gst_start}'].border = thin_border
+            
+            igst_amount_cell = ws.cell(row=gst_start, column=4, value=igst_value)
+            igst_amount_cell.alignment = right_align
+            igst_amount_cell.number_format = '#,##0.00'
+            igst_amount_cell.border = thin_border
+
+        # CGST Row
+        cgst_row = gst_start + 1
+        ws.merge_cells(f'A{cgst_row}:C{cgst_row}')
+        cgst_label = ws.cell(row=cgst_row, column=1, value="CGST")
         cgst_label.font = bold_font
         cgst_label.alignment = right_align
-        for col in ['A', 'B']:
-            ws[f'{col}{gst_start+1}'].border = thin_border
-        
-        ws.cell(row=gst_start+1, column=3, value="-").alignment = center_align
-        ws.cell(row=gst_start+1, column=3).border = thin_border
-        ws.cell(row=gst_start+1, column=4, value="-").alignment = center_align
-        ws.cell(row=gst_start+1, column=4).border = thin_border
-        
-        # SGST Row (show for both brands but with "-")
-        ws.merge_cells(f'A{gst_start+2}:B{gst_start+2}')
-        sgst_label = ws.cell(row=gst_start+2, column=1, value="SGST")
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{cgst_row}'].border = thin_border
+
+        ws.cell(row=cgst_row, column=4, value="-").alignment = center_align
+        ws.cell(row=cgst_row, column=4).border = thin_border
+
+        # SGST Row
+        sgst_row = cgst_row + 1
+        ws.merge_cells(f'A{sgst_row}:C{sgst_row}')
+        sgst_label = ws.cell(row=sgst_row, column=1, value="SGST")
         sgst_label.font = bold_font
         sgst_label.alignment = right_align
-        for col in ['A', 'B']:
-            ws[f'{col}{gst_start+2}'].border = thin_border
-        
-        ws.cell(row=gst_start+2, column=3, value="-").alignment = center_align
-        ws.cell(row=gst_start+2, column=3).border = thin_border
-        ws.cell(row=gst_start+2, column=4, value="-").alignment = center_align
-        ws.cell(row=gst_start+2, column=4).border = thin_border
-        
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{sgst_row}'].border = thin_border
+
+        ws.cell(row=sgst_row, column=4, value="-").alignment = center_align
+        ws.cell(row=sgst_row, column=4).border = thin_border
+
         # Invoice Amount/Grand Total Row - WITH PEACH FILL
-        # Change 6: Update "Invoice Amount" to "Grand Total" for Candor
-        invoice_row = gst_start + 3
-        ws.merge_cells(f'A{invoice_row}:B{invoice_row}')
+        invoice_row = sgst_row + 1
+        ws.merge_cells(f'A{invoice_row}:C{invoice_row}')
 
         # Change label for Candor
         if invoice_data.get('brand') == 'Candor':
@@ -803,20 +825,18 @@ class InvoiceProcessor:
         invoice_label = ws.cell(row=invoice_row, column=1, value=invoice_label_text)
         invoice_label.font = bold_font
         invoice_label.alignment = right_align
-        invoice_label.fill = peach_fill  # Add peach fill
-        for col in ['A', 'B']:
+        invoice_label.fill = peach_fill
+        for col in ['A', 'B', 'C']:
             cell = ws[f'{col}{invoice_row}']
             cell.border = thin_border
             cell.fill = peach_fill
-        
-        ws.cell(row=invoice_row, column=3).border = thin_border
-        ws.cell(row=invoice_row, column=3).fill = peach_fill  # Add peach fill
+
         invoice_amount_cell = ws.cell(row=invoice_row, column=4, value=invoice_data['totals']['invoice_amount'])
         invoice_amount_cell.font = bold_font
         invoice_amount_cell.alignment = right_align
         invoice_amount_cell.number_format = '#,##0.00'
         invoice_amount_cell.border = thin_border
-        invoice_amount_cell.fill = peach_fill  # Add peach fill
+        invoice_amount_cell.fill = peach_fill
         
         # Only show Advance Received (COD) and Net Amount for Amazon
         if invoice_data.get('brand') == 'Amazon':
