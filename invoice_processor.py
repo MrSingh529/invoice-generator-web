@@ -229,6 +229,45 @@ class InvoiceProcessor:
                     'amount': round(total_amount, 2)
                 })
         
+        elif self.brand_name == 'LifeLong':
+            # LifeLong logic - group by Description column
+            description_column = 'Description'
+            
+            if description_column in asc_data.columns and not asc_data[description_column].isna().all():
+                description_groups = asc_data.groupby(description_column)
+                
+                for description, group in description_groups:
+                    description_str = str(description) if not pd.isna(description) else "Services"
+                    
+                    # Quantity is the count of rows for this description
+                    total_qty = len(group)
+                    
+                    # Amount from Final Amount column
+                    total_amount = 0.0
+                    if 'Final Amount' in group.columns:
+                        total_amount = float(group['Final Amount'].sum())
+                    
+                    items.append({
+                        'description': description_str,
+                        'sac_code': '998715',
+                        'quantity': total_qty,
+                        'amount': round(total_amount, 2)
+                    })
+            else:
+                # Fallback: single service row
+                total_qty = len(asc_data)
+                
+                total_amount = 0.0
+                if 'Final Amount' in asc_data.columns:
+                    total_amount = float(asc_data['Final Amount'].sum())
+                
+                items.append({
+                    'description': 'Services',
+                    'sac_code': '998715',
+                    'quantity': total_qty,
+                    'amount': round(total_amount, 2)
+                })
+        
         return items
     
     def _extract_invoice_month(self, asc_data):
@@ -257,8 +296,8 @@ class InvoiceProcessor:
         def round_decimal(value):
             return Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # Check if it's a freelancer (for Harman only)
-        is_freelancer = brand_name == 'Harman' and 'Free Lancer' in str(asc_name)
+        # Check if it's a freelancer (for Harman and LifeLong)
+        is_freelancer = (brand_name == 'Harman' or brand_name == 'LifeLong') and 'Free Lancer' in str(asc_name)
         
         if brand_name == 'Amazon':
             total_qty = asc_data['quantity'].sum() if 'quantity' in asc_data.columns else len(asc_data)
@@ -269,9 +308,13 @@ class InvoiceProcessor:
             total_amount = float(asc_data['Call Charge'].sum()) if 'Call Charge' in asc_data.columns else 0.0
             total_cod = 0.0  # Harman doesn't have COD
         elif brand_name == 'Philips':
-            total_qty = len(asc_data)  # Total row count (sum of rows)
+            total_qty = len(asc_data)  # Total row count
             total_amount = float(asc_data['Final Amount'].sum()) if 'Final Amount' in asc_data.columns else 0.0
             total_cod = 0.0  # Philips doesn't have COD
+        elif brand_name == 'LifeLong':
+            total_qty = len(asc_data)  # Total row count
+            total_amount = float(asc_data['Final Amount'].sum()) if 'Final Amount' in asc_data.columns else 0.0
+            total_cod = 0.0  # LifeLong doesn't have COD
         else:
             total_qty = len(asc_data)
             total_amount = 0.0
@@ -290,8 +333,8 @@ class InvoiceProcessor:
         # Calculate invoice amount
         invoice_amount_dec = round_decimal(total_amount_dec + igst_dec)
         
-        # For Harman and Philips, net amount is same as invoice amount (no COD deduction)
-        if brand_name in ['Harman', 'Philips']:
+        # For Harman, Philips and LifeLong, net amount is same as invoice amount (no COD deduction)
+        if brand_name in ['Harman', 'Philips', 'LifeLong']:
             net_amount_dec = invoice_amount_dec
         else:
             net_amount_dec = round_decimal(invoice_amount_dec - total_cod_dec)
@@ -374,13 +417,21 @@ class InvoiceProcessor:
             bottom=Side(style='thin')
         )
         
+        # Define no border style for spacing rows
+        no_border = Border(
+            left=Side(style='none'),
+            right=Side(style='none'),
+            top=Side(style='none'),
+            bottom=Side(style='none')
+        )
+        
         # Define light peach color fill
         peach_fill = PatternFill(start_color='FFFFE5CC',
                                 end_color='FFFFE5CC',
                                 fill_type='solid')
         
         # ===== INVOICE TITLE BASED ON BRAND =====
-        if invoice_data.get('brand') == 'Harman':
+        if invoice_data.get('brand') == 'Harman' or invoice_data.get('brand') == 'LifeLong':
             invoice_title = "Bill of Supply"
         elif invoice_data.get('brand') == 'Philips':
             invoice_title = "Tax Invoice"
@@ -471,6 +522,8 @@ class InvoiceProcessor:
             month_title = f"Harman Invoice Month of {invoice_data['invoice_month']}"
         elif invoice_data.get('brand') == 'Philips':
             month_title = f"Philips Invoice Month of {invoice_data['invoice_month']}"
+        elif invoice_data.get('brand') == 'LifeLong':
+            month_title = f"LifeLong Invoice Month of {invoice_data['invoice_month']}"
         else:
             month_title = f"Amazon Invoice Month of {invoice_data['invoice_month']}"
 
@@ -499,7 +552,10 @@ class InvoiceProcessor:
         
         # ===== ADD ITEMS =====
         current_row = 12
-        for item in invoice_data['items']:
+        items = invoice_data['items']
+        
+        for idx, item in enumerate(items):
+            # Add item row
             desc_cell = ws.cell(row=current_row, column=1, value=item['description'])
             desc_cell.border = thin_border
             desc_cell.alignment = left_align
@@ -518,6 +574,18 @@ class InvoiceProcessor:
             amount_cell.number_format = '#,##0.00'
             
             current_row += 1
+            
+            # Add spacing rows after each item for LifeLong brand only
+            if invoice_data.get('brand') == 'LifeLong' and idx < len(items) - 1:
+                # Add 2-3 empty rows without borders for spacing
+                spacing_rows = 2  # You can change this to 3 if you want 3 rows
+                
+                for _ in range(spacing_rows):
+                    for col in range(1, 5):  # Columns A to D
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = no_border  # No borders for spacing rows
+                        cell.value = ""  # Empty value
+                    current_row += 1
         
         # ===== TOTAL ROW =====
         total_row = current_row
@@ -646,7 +714,7 @@ class InvoiceProcessor:
             
             words_start_row = net_row + 1
         else:
-            # For Harman and Philips, skip COD and Net Amount rows, start words after Invoice Amount
+            # For Harman, Philips and LifeLong, skip COD and Net Amount rows, start words after Invoice Amount
             words_start_row = invoice_row + 1
         
         # ===== AMOUNT IN WORDS =====
@@ -666,17 +734,17 @@ class InvoiceProcessor:
         
         # ===== DECLARATION AND TERMS =====
         declaration_row = words_row + 2
-
+        
         # Merge A:B for declaration
         ws.merge_cells(f'A{declaration_row}:B{declaration_row+8}')
-
+        
         # Use brand-specific declaration
-        if invoice_data.get('brand') == 'Harman':
+        if invoice_data.get('brand') == 'Harman' or invoice_data.get('brand') == 'LifeLong':
             declaration_text = "Declaration:- We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\nTerms: * In case of non reflection of the GST amount in GSTR-2B of RV Solutions Pvt. Ltd. within 30th-June of Next Financial year, we agree to pay RV Solutions Pvt. Ltd. the GST amount along with interest @24% p.a. on delayed payment."
         else:
             # Amazon and Philips use the same declaration
             declaration_text = "Declaration:- We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\n* In case of non reflection of the GST amount in GSTR-2B of RV Solutions Pvt. Ltd. within 30th-June of Next Financial year, we agree to pay RV Solutions Pvt. Ltd. the GST amount along with interest @18% p.a. on delayed payment."
-
+        
         declaration_cell = ws.cell(row=declaration_row, column=1, value=declaration_text)
         declaration_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
         for row in range(declaration_row, declaration_row + 9):

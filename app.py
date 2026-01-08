@@ -394,6 +394,8 @@ def main():
                         amount_column = 'Call Charge'
                     elif selected_brand == 'Philips':
                         amount_column = 'Final Amount'
+                    elif selected_brand == 'LifeLong':
+                        amount_column = 'Final Amount'
                     else:
                         amount_column = 'Earning'
                     
