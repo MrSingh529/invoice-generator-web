@@ -66,10 +66,16 @@ class InvoiceProcessor:
         # Extract ASC information (first record's details)
         first_record = asc_data.iloc[0]
         
+        # For Candor CRM, don't include Owner Name and Contact No. in ASC details
+        if self.brand_name == 'Candor CRM':
+            asc_details_text = f"{asc_name}\n{first_record.get('Address', '')}"
+        else:
+            asc_details_text = f"{asc_name}\n{first_record.get('Address', '')}\nName: {first_record.get('Owner Name', '')} Mob. No.: {first_record.get('Contact No.', '')}"
+        
         # Create invoice data structure
         invoice_data = {
             # ASC Details
-            'asc_name': first_record.get('ASC Name', asc_name),
+            'asc_name': asc_name,
             'address': first_record.get('Address', ''),
             'owner_name': first_record.get('Owner Name', ''),
             'contact_no': first_record.get('Contact No.', ''),
@@ -268,6 +274,55 @@ class InvoiceProcessor:
                     'amount': round(total_amount, 2)
                 })
         
+        elif self.brand_name == 'Candor CRM':
+            # Candor CRM logic - group by Claim Status column
+            claim_status_column = 'Claim Status'
+            
+            if claim_status_column in asc_data.columns and not asc_data[claim_status_column].isna().all():
+                claim_groups = asc_data.groupby(claim_status_column)
+                
+                for claim_status, group in claim_groups:
+                    claim_str = str(claim_status) if not pd.isna(claim_status) else "Services"
+                    
+                    # Quantity is the count of rows for this claim status
+                    total_qty = len(group)
+                    
+                    # Calculate rate (average amount per item)
+                    total_amount = 0.0
+                    if 'Amount' in group.columns:
+                        total_amount = float(group['Amount'].sum())
+                    
+                    # Calculate rate (average amount - for Candor CRM, rate is the individual item amount)
+                    rate = 0.0
+                    if total_qty > 0 and 'Amount' in group.columns:
+                        # Get the first amount as rate (assuming same rate for all rows in same group)
+                        rate = float(group['Amount'].iloc[0]) if len(group) > 0 else 0.0
+                    
+                    # For Candor CRM, we return rate separately
+                    items.append({
+                        'description': claim_str,
+                        'quantity': total_qty,
+                        'rate': round(rate, 2),
+                        'amount': round(total_amount, 2)
+                    })
+            else:
+                # Fallback: single service row
+                total_qty = len(asc_data)
+                
+                total_amount = 0.0
+                rate = 0.0
+                if 'Amount' in asc_data.columns:
+                    total_amount = float(asc_data['Amount'].sum())
+                    if total_qty > 0:
+                        rate = float(asc_data['Amount'].iloc[0]) if len(asc_data) > 0 else 0.0
+                
+                items.append({
+                    'description': 'Services',
+                    'quantity': total_qty,
+                    'rate': round(rate, 2),
+                    'amount': round(total_amount, 2)
+                })
+        
         else:
             # Default fallback for any other brand
             total_qty = len(asc_data)
@@ -327,6 +382,10 @@ class InvoiceProcessor:
             total_qty = len(asc_data)  # Total row count
             total_amount = float(asc_data['Final Amount'].sum()) if 'Final Amount' in asc_data.columns else 0.0
             total_cod = 0.0  # LifeLong doesn't have COD
+        elif brand_name == 'Candor CRM':
+            total_qty = len(asc_data)  # Total row count
+            total_amount = float(asc_data['Amount'].sum()) if 'Amount' in asc_data.columns else 0.0
+            total_cod = 0.0  # Candor CRM doesn't have COD
         else:
             total_qty = len(asc_data)
             total_amount = 0.0
@@ -345,8 +404,8 @@ class InvoiceProcessor:
         # Calculate invoice amount
         invoice_amount_dec = round_decimal(total_amount_dec + igst_dec)
         
-        # For Harman, Philips and LifeLong, net amount is same as invoice amount (no COD deduction)
-        if brand_name in ['Harman', 'Philips', 'LifeLong']:
+        # For Harman, Philips, LifeLong and Candor CRM, net amount is same as invoice amount (no COD deduction)
+        if brand_name in ['Harman', 'Philips', 'LifeLong', 'Candor CRM']:
             net_amount_dec = invoice_amount_dec
         else:
             net_amount_dec = round_decimal(invoice_amount_dec - total_cod_dec)
@@ -407,6 +466,10 @@ class InvoiceProcessor:
         """Create properly formatted Excel invoice in memory - returns bytes"""
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
+        
+        # For Candor CRM, use a completely different format
+        if invoice_data.get('brand') == 'Candor CRM':
+            return self._create_candor_crm_invoice(asc_name, invoice_data)
         
         # Create a new workbook in memory
         wb = Workbook()
@@ -789,6 +852,328 @@ class InvoiceProcessor:
             'A': 35,   # Description
             'B': 10,   # SAC Code
             'C': 16,   # Qty/Percentage
+            'D': 18,   # Amount
+        }
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # ===== SAVE TO BYTES =====
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output.getvalue()
+
+    def _create_candor_crm_invoice(self, asc_name, invoice_data):
+        """Create Candor CRM specific invoice format"""
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
+        
+        # Create a new workbook in memory
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Invoice"
+        
+        # Define styles
+        bold_font = Font(bold=True)
+        normal_font = Font()
+        right_align = Alignment(horizontal='right', vertical='center')
+        left_align = Alignment(horizontal='left', vertical='center')
+        center_align = Alignment(horizontal='center', vertical='center')
+        top_left_align = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        
+        # Define border style
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Define light peach color fill
+        peach_fill = PatternFill(start_color='FFFFE5CC',
+                                end_color='FFFFE5CC',
+                                fill_type='solid')
+        
+        # ===== TAX INVOICE TITLE =====
+        ws.merge_cells('A1:D1')
+        ws['A1'] = "Tax Invoice"
+        ws['A1'].font = Font(bold=True, size=14)
+        ws['A1'].alignment = center_align
+        # Apply border and peach fill to all cells in merged range
+        for col in ['A', 'B', 'C', 'D']:
+            cell = ws[f'{col}1']
+            cell.border = thin_border
+            cell.fill = peach_fill
+        
+        # ===== ASC DETAILS SECTION (No Owner Name or Mob No for Candor CRM) =====
+        asc_details_text = f"{invoice_data['asc_name']}\n{invoice_data['address']}"
+        
+        ws.merge_cells('A2:B5')
+        asc_details_cell = ws['A2']
+        asc_details_cell.value = asc_details_text
+        asc_details_cell.alignment = top_left_align
+        # Apply border to all cells in merged range
+        for row in range(2, 6):
+            for col in ['A', 'B']:
+                ws[f'{col}{row}'].border = thin_border
+        
+        # ===== INVOICE HEADER DETAILS (RIGHT SIDE) =====
+        ws['C2'] = "Invoice Number:"
+        ws['C2'].font = bold_font
+        ws['D2'] = invoice_data['invoice_number']
+        
+        ws['C3'] = "Invoice Date:"
+        ws['C3'].font = bold_font
+        ws['D3'] = invoice_data['invoice_date']
+        
+        ws['C4'] = "PAN No.:"
+        ws['C4'].font = bold_font
+        ws['D4'] = invoice_data['pan_no']
+        
+        ws['C5'] = "GST No.:"
+        ws['C5'].font = bold_font
+        ws['D5'] = invoice_data['gst_no']
+        
+        # ===== SAC CODE ROW (Additional row for Candor CRM) =====
+        ws['C6'] = "SAC Code:"
+        ws['C6'].font = bold_font
+        ws['D6'] = "998729"
+        
+        # ===== BUYER SECTION (Instead of Bill To) =====
+        ws.merge_cells('A7:B10')
+        buyer_text = "Buyer\nRV Solutions Pvt. Ltd.\nD-59, Sector-2, District-Gautam Buddh Nagar, Noida,\nUttar Pradesh - 201301.\nContact No.-8588881737"
+        buyer_cell = ws['A7']
+        buyer_cell.value = buyer_text
+        buyer_cell.alignment = top_left_align
+        buyer_cell.font = bold_font  # "Buyer" in bold
+        # Apply border to all cells in merged range
+        for row in range(7, 11):
+            for col in ['A', 'B']:
+                ws[f'{col}{row}'].border = thin_border
+        
+        # ===== COMPANY DETAILS (RIGHT SIDE OF BUYER) =====
+        ws['C7'] = "PAN No.:"
+        ws['C7'].font = bold_font
+        ws['D7'] = "AADCR9806P"
+        
+        ws['C8'] = "GST No.:"
+        ws['C8'].font = bold_font
+        ws['D8'] = "09AADCR9806PJZL"
+        
+        ws['C9'] = "State Code:"
+        ws['C9'].font = bold_font
+        ws['D9'] = "'09"
+        
+        ws['C10'] = "Place of Supply:"
+        ws['C10'].font = bold_font
+        ws['D10'] = "Uttar Pradesh"
+        
+        # Align all right side cells
+        for row in range(2, 11):
+            for col in [3, 4]:  # Columns C and D
+                cell = ws.cell(row=row, column=col)
+                cell.alignment = left_align
+                if cell.value and ":" in str(cell.value):
+                    cell.font = bold_font
+
+        for row in range(2, 11):
+            for col in ['C', 'D']:
+                ws[f'{col}{row}'].border = thin_border
+        
+        # ===== MONTH TITLE - MERGED (Candor CRM specific) =====
+        month_title = f"Honor/Acwo Claim Month of {invoice_data['invoice_month']}"
+        
+        ws.merge_cells('A11:D11')
+        ws['A11'] = month_title
+        ws['A11'].font = Font(bold=True)
+        ws['A11'].alignment = center_align
+        # Apply border to all cells in merged range
+        for col in ['A', 'B', 'C', 'D']:
+            ws[f'{col}11'].border = thin_border
+        
+        # ===== TABLE HEADERS WITH BORDERS AND PEACH FILL =====
+        # Different headers for Candor CRM
+        headers = ["Description", "Quantity", "Rate", "Amount"]
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=12, column=col_idx)
+            cell.value = header
+            cell.font = Font(bold=True)
+            cell.border = thin_border
+            cell.fill = peach_fill  # Add peach fill to header row
+            if header == "Amount" or header == "Rate":
+                cell.alignment = right_align
+            elif header == "Quantity":
+                cell.alignment = center_align
+            else:
+                cell.alignment = left_align
+        
+        # ===== ADD ITEMS (Different format for Candor CRM) =====
+        current_row = 13
+        for item in invoice_data['items']:
+            # Description (Column A)
+            desc_cell = ws.cell(row=current_row, column=1, value=item['description'])
+            desc_cell.border = thin_border
+            desc_cell.alignment = left_align
+            
+            # Quantity (Column B)
+            qty_cell = ws.cell(row=current_row, column=2, value=item['quantity'])
+            qty_cell.border = thin_border
+            qty_cell.alignment = right_align
+            
+            # Rate (Column C)
+            rate_cell = ws.cell(row=current_row, column=3, value=item['rate'])
+            rate_cell.border = thin_border
+            rate_cell.alignment = right_align
+            rate_cell.number_format = '#,##0.00'
+            
+            # Amount (Column D) = Quantity * Rate
+            amount_cell = ws.cell(row=current_row, column=4, value=item['amount'])
+            amount_cell.border = thin_border
+            amount_cell.alignment = right_align
+            amount_cell.number_format = '#,##0.00'
+            
+            current_row += 1
+        
+        # ===== TOTAL ROW =====
+        total_row = current_row
+        
+        ws.merge_cells(f'A{total_row}:C{total_row}')
+        total_label = ws.cell(row=total_row, column=1, value="Total")
+        total_label.font = bold_font
+        total_label.alignment = right_align
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{total_row}'].border = thin_border
+        
+        total_amount_cell = ws.cell(row=total_row, column=4, value=invoice_data['totals']['total_amount'])
+        total_amount_cell.border = thin_border
+        total_amount_cell.font = bold_font
+        total_amount_cell.alignment = right_align
+        total_amount_cell.number_format = '#,##0.00'
+        
+        # ===== GST AND TOTALS SECTION =====
+        gst_start = total_row + 1
+        
+        # IGST Row (18% for Candor CRM)
+        ws.merge_cells(f'A{gst_start}:C{gst_start}')
+        igst_label = ws.cell(row=gst_start, column=1, value="IGST")
+        igst_label.font = bold_font
+        igst_label.alignment = right_align
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{gst_start}'].border = thin_border
+        
+        ws.cell(row=gst_start, column=4, value="18%").alignment = right_align
+        ws.cell(row=gst_start, column=4).border = thin_border
+        
+        # IGST Amount Row
+        ws.merge_cells(f'A{gst_start+1}:C{gst_start+1}')
+        igst_amount_label = ws.cell(row=gst_start+1, column=1, value="")
+        igst_amount_label.alignment = right_align
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{gst_start+1}'].border = thin_border
+        
+        igst_amount_cell = ws.cell(row=gst_start+1, column=4, value=invoice_data['totals']['igst'])
+        igst_amount_cell.alignment = right_align
+        igst_amount_cell.number_format = '#,##0.00'
+        igst_amount_cell.border = thin_border
+        
+        # CGST Row (show as "-")
+        ws.merge_cells(f'A{gst_start+2}:C{gst_start+2}')
+        cgst_label = ws.cell(row=gst_start+2, column=1, value="CGST")
+        cgst_label.font = bold_font
+        cgst_label.alignment = right_align
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{gst_start+2}'].border = thin_border
+        
+        ws.cell(row=gst_start+2, column=4, value="-").alignment = center_align
+        ws.cell(row=gst_start+2, column=4).border = thin_border
+        
+        # SGST Row (show as "-")
+        ws.merge_cells(f'A{gst_start+3}:C{gst_start+3}')
+        sgst_label = ws.cell(row=gst_start+3, column=1, value="SGST")
+        sgst_label.font = bold_font
+        sgst_label.alignment = right_align
+        for col in ['A', 'B', 'C']:
+            ws[f'{col}{gst_start+3}'].border = thin_border
+        
+        ws.cell(row=gst_start+3, column=4, value="-").alignment = center_align
+        ws.cell(row=gst_start+3, column=4).border = thin_border
+        
+        # GRAND TOTAL Row (Instead of "Invoice Amount") - WITH PEACH FILL
+        grand_total_row = gst_start + 4
+        ws.merge_cells(f'A{grand_total_row}:C{grand_total_row}')
+        grand_total_label = ws.cell(row=grand_total_row, column=1, value="Grand Total")
+        grand_total_label.font = bold_font
+        grand_total_label.alignment = right_align
+        grand_total_label.fill = peach_fill  # Add peach fill
+        for col in ['A', 'B', 'C']:
+            cell = ws[f'{col}{grand_total_row}']
+            cell.border = thin_border
+            cell.fill = peach_fill
+        
+        grand_total_cell = ws.cell(row=grand_total_row, column=4, value=invoice_data['totals']['invoice_amount'])
+        grand_total_cell.font = bold_font
+        grand_total_cell.alignment = right_align
+        grand_total_cell.number_format = '#,##0.00'
+        grand_total_cell.border = thin_border
+        grand_total_cell.fill = peach_fill  # Add peach fill
+        
+        # ===== AMOUNT IN WORDS =====
+        words_row = grand_total_row + 1
+        
+        ws.merge_cells(f'A{words_row}:D{words_row}')
+        words_label = ws.cell(row=words_row, column=1, value="Invoice Amount (in words)")
+        words_label.font = bold_font
+        for col in ['A', 'B', 'C', 'D']:
+            ws[f'{col}{words_row}'].border = thin_border
+        
+        ws.merge_cells(f'A{words_row+1}:D{words_row+1}')
+        amount_words = ws.cell(row=words_row+1, column=1, value=invoice_data['totals']['amount_in_words'])
+        amount_words.alignment = left_align
+        for col in ['A', 'B', 'C', 'D']:
+            ws[f'{col}{words_row+1}'].border = thin_border
+        
+        # ===== DECLARATION AND TERMS =====
+        declaration_row = words_row + 2
+        
+        # Merge A:B for declaration
+        ws.merge_cells(f'A{declaration_row}:B{declaration_row+8}')
+        
+        # Use Amazon/Philips declaration for Candor CRM (18% interest)
+        declaration_text = "Declaration:- We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\n* In case of non reflection of the GST amount in GSTR-2B of RV Solutions Pvt. Ltd. within 30th-June of Next Financial year, we agree to pay RV Solutions Pvt. Ltd. the GST amount along with interest @18% p.a. on delayed payment."
+        
+        declaration_cell = ws.cell(row=declaration_row, column=1, value=declaration_text)
+        declaration_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        for row in range(declaration_row, declaration_row + 9):
+            for col in ['A', 'B']:
+                ws[f'{col}{row}'].border = thin_border
+        
+        # ===== AUTHORIZED SIGNATORY =====
+        sign_start_row = declaration_row
+        sign_end_row = declaration_row + 8
+        
+        ws.merge_cells(f'C{sign_start_row}:D{sign_end_row}')
+        
+        signatory_cell = ws.cell(
+            row=sign_start_row,
+            column=3,
+            value="Authorised Signatory"
+        )
+        signatory_cell.font = bold_font
+        signatory_cell.alignment = Alignment(
+            horizontal='center',
+            vertical='bottom'
+        )
+        
+        for row in range(sign_start_row, sign_end_row + 1):
+            for col in ['C', 'D']:
+                ws[f'{col}{row}'].border = thin_border
+        
+        # ===== ADJUST COLUMN WIDTHS =====
+        column_widths = {
+            'A': 35,   # Description
+            'B': 12,   # Quantity
+            'C': 12,   # Rate
             'D': 18,   # Amount
         }
         

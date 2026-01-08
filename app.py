@@ -377,7 +377,7 @@ def main():
                 st.error(f"X Error reading file: {str(e)}")
     
     with col2:
-        # Statistics Panel
+        # Statistics panel
         st.subheader("Statistics")
         
         if uploaded_file:
@@ -396,6 +396,8 @@ def main():
                         amount_column = 'Final Amount'
                     elif selected_brand == 'LifeLong':
                         amount_column = 'Final Amount'
+                    elif selected_brand == 'Candor CRM':
+                        amount_column = 'Amount'
                     else:
                         amount_column = 'Earning'
                     
@@ -412,7 +414,7 @@ def main():
                                 break
                         if not amount_column_found:
                             total_amount = 0
-                            st.warning(f"⚠️ Amount column not found. Tried: Earning, Call Charge, Final Amount")
+                            st.warning(f"⚠️ Amount column not found. Tried: Earning, Call Charge, Final Amount, Amount")
                     
                     st.metric("Total ASCs", total_ascs)
                     st.metric("Total Records", total_records)
