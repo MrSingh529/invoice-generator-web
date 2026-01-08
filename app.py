@@ -388,14 +388,35 @@ def main():
                 if asc_column in df.columns:
                     total_ascs = df[asc_column].nunique()
                     total_records = len(df)
-                    total_earning = df['Earning'].sum() if 'Earning' in df.columns else 0
+                    
+                    # Determine amount column based on brand
+                    if selected_brand == 'Harman':
+                        amount_column = 'Call Charge'
+                    else:
+                        amount_column = 'Earning'
+                    
+                    # Check if amount column exists
+                    if amount_column in df.columns:
+                        total_amount = df[amount_column].sum()
+                    else:
+                        # Try alternative column names
+                        amount_column_found = False
+                        for col in df.columns:
+                            if 'earning' in str(col).lower() or 'amount' in str(col).lower() or 'charge' in str(col).lower():
+                                total_amount = df[col].sum()
+                                amount_column_found = True
+                                break
+                        if not amount_column_found:
+                            total_amount = 0
+                            st.warning(f"⚠️ Amount column not found. Tried: Earning, Call Charge, Amount")
                     
                     st.metric("Total ASCs", total_ascs)
                     st.metric("Total Records", total_records)
-                    st.metric("Total Earning", f"₹{total_earning:,.2f}")
+                    st.metric("Total Amount", f"₹{total_amount:,.2f}")
                 else:
                     st.warning(f"⚠️ ASC column '{asc_column}' not found")
-            except:
+            except Exception as e:
+                st.error(f"Error calculating statistics: {str(e)}")
                 st.info("Upload file to see statistics")
         else:
             st.info("Upload file to see statistics")
@@ -475,7 +496,7 @@ def main():
                     summary_data = []
                     total_records = 0
                     total_earning = 0
-                    
+
                     for asc_name, data in results.items():
                         summary_data.append({
                             'ASC Name': asc_name,
@@ -484,10 +505,10 @@ def main():
                         })
                         total_records += data['records']
                         total_earning += data['total_amount']
-                    
+
                     summary_df = pd.DataFrame(summary_data)
                     st.dataframe(summary_df, use_container_width=True)
-                    
+
                     # Totals
                     col1, col2, col3 = st.columns(3)
                     with col1:

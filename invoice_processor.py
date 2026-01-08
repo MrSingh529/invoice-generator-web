@@ -247,7 +247,7 @@ class InvoiceProcessor:
         # Calculate invoice amount
         invoice_amount_dec = round_decimal(total_amount_dec + igst_dec)
         
-        # For Harman, don't subtract COD
+        # For Harman, net amount is same as invoice amount (no COD deduction)
         if brand_name == 'Harman':
             net_amount_dec = invoice_amount_dec
         else:
@@ -256,12 +256,12 @@ class InvoiceProcessor:
         # Convert back to float for the rest of the code
         totals = {
             'total_qty': int(total_qty),
-            'total_amount': float(total_amount_dec),
+            'total_amount': float(total_amount_dec),  # This is the amount WITHOUT GST
             'total_cod': float(total_cod_dec),
             'igst': float(igst_dec),
-            'cgst': 0.0,
-            'sgst': 0.0,
-            'invoice_amount': float(invoice_amount_dec),
+            'cgst': 0.0,  # Always 0 for both brands
+            'sgst': 0.0,  # Always 0 for both brands
+            'invoice_amount': float(invoice_amount_dec),  # This is amount + GST
             'net_amount': float(net_amount_dec),
             'is_freelancer': is_freelancer,
             'brand': brand_name
@@ -509,45 +509,34 @@ class InvoiceProcessor:
             igst_cell.number_format = '#,##0.00'
         igst_cell.border = thin_border
         
-        # Only show COD section for Amazon (not Harman)
-        if invoice_data.get('brand') != 'Harman':
-            # CGST Row (only for Amazon)
-            ws.merge_cells(f'A{gst_start+1}:B{gst_start+1}')
-            cgst_label = ws.cell(row=gst_start+1, column=1, value="CGST")
-            cgst_label.font = bold_font
-            cgst_label.alignment = right_align
-            for col in ['A', 'B']:
-                ws[f'{col}{gst_start+1}'].border = thin_border
-            
-            ws.cell(row=gst_start+1, column=3, value="-").alignment = center_align
-            ws.cell(row=gst_start+1, column=3).border = thin_border
-            ws.cell(row=gst_start+1, column=4, value="-").alignment = center_align
-            ws.cell(row=gst_start+1, column=4).border = thin_border
-            
-            # SGST Row (only for Amazon)
-            ws.merge_cells(f'A{gst_start+2}:B{gst_start+2}')
-            sgst_label = ws.cell(row=gst_start+2, column=1, value="SGST")
-            sgst_label.font = bold_font
-            sgst_label.alignment = right_align
-            for col in ['A', 'B']:
-                ws[f'{col}{gst_start+2}'].border = thin_border
-            
-            ws.cell(row=gst_start+2, column=3, value="-").alignment = center_align
-            ws.cell(row=gst_start+2, column=3).border = thin_border
-            ws.cell(row=gst_start+2, column=4, value="-").alignment = center_align
-            ws.cell(row=gst_start+2, column=4).border = thin_border
-            
-            # Invoice Amount Row
-            invoice_row = gst_start + 3
-            cod_row = gst_start + 4
-            net_row = gst_start + 5
-        else:
-            # For Harman, skip CGST/SGST rows
-            invoice_row = gst_start + 1
-            # Skip COD and Net Amount rows for Harman
-            net_row = gst_start + 2
+        # CGST Row (show for both brands but with "-")
+        ws.merge_cells(f'A{gst_start+1}:B{gst_start+1}')
+        cgst_label = ws.cell(row=gst_start+1, column=1, value="CGST")
+        cgst_label.font = bold_font
+        cgst_label.alignment = right_align
+        for col in ['A', 'B']:
+            ws[f'{col}{gst_start+1}'].border = thin_border
+        
+        ws.cell(row=gst_start+1, column=3, value="-").alignment = center_align
+        ws.cell(row=gst_start+1, column=3).border = thin_border
+        ws.cell(row=gst_start+1, column=4, value="-").alignment = center_align
+        ws.cell(row=gst_start+1, column=4).border = thin_border
+        
+        # SGST Row (show for both brands but with "-")
+        ws.merge_cells(f'A{gst_start+2}:B{gst_start+2}')
+        sgst_label = ws.cell(row=gst_start+2, column=1, value="SGST")
+        sgst_label.font = bold_font
+        sgst_label.alignment = right_align
+        for col in ['A', 'B']:
+            ws[f'{col}{gst_start+2}'].border = thin_border
+        
+        ws.cell(row=gst_start+2, column=3, value="-").alignment = center_align
+        ws.cell(row=gst_start+2, column=3).border = thin_border
+        ws.cell(row=gst_start+2, column=4, value="-").alignment = center_align
+        ws.cell(row=gst_start+2, column=4).border = thin_border
         
         # Invoice Amount Row
+        invoice_row = gst_start + 3
         ws.merge_cells(f'A{invoice_row}:B{invoice_row}')
         invoice_label = ws.cell(row=invoice_row, column=1, value="Invoice Amount")
         invoice_label.font = bold_font
@@ -565,6 +554,7 @@ class InvoiceProcessor:
         # Only show Advance Received (COD) and Net Amount for Amazon
         if invoice_data.get('brand') != 'Harman':
             # Advance Received (COD) Row
+            cod_row = gst_start + 4
             ws.merge_cells(f'A{cod_row}:B{cod_row}')
             cod_label = ws.cell(row=cod_row, column=1, value="Advance Received (COD)")
             cod_label.font = bold_font
@@ -579,6 +569,7 @@ class InvoiceProcessor:
             cod_cell.border = thin_border
             
             # Net Amount Row
+            net_row = gst_start + 5
             ws.merge_cells(f'A{net_row}:B{net_row}')
             net_label = ws.cell(row=net_row, column=1, value="Net Amount")
             net_label.font = bold_font
@@ -595,7 +586,7 @@ class InvoiceProcessor:
             
             words_start_row = net_row + 1
         else:
-            # For Harman, start words after Invoice Amount
+            # For Harman, skip COD and Net Amount rows, start words after Invoice Amount
             words_start_row = invoice_row + 1
         
         # ===== AMOUNT IN WORDS =====
