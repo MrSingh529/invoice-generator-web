@@ -76,11 +76,11 @@ BRAND_CONFIGS = {
             'add_spacing_rows': True
         }
     },
-    'CandorCRM': {
+    'Candor': {
         'asc_column': 'ASC Name',
         'required_columns': [
             'ASC Name', 'Claim Status', 'Amount',
-            'PAN No.', 'GST No.', 'Address'
+            'Contact No.', 'PAN No.', 'GST No.', 'Address'
         ],
         'invoice_template': {
             'company_name': 'RV Solutions Private Limited',
@@ -93,12 +93,10 @@ BRAND_CONFIGS = {
             'invoice_title': 'Tax Invoice',
             'amount_column': 'Amount',
             'description_column': 'Claim Status',
+            'exclude_owner_mobile': True,
             'exclude_cod_section': True,
-            'show_sac_code_row': True,
-            'buyer_label': True,
-            'show_contact_no': True,
-            'headers': ['Description', 'Quantity', 'Rate', 'Amount'],
-            'grand_total_label': 'Grand Total'
+            'add_sac_code_row': True,
+            'month_label': 'Honor/Acwo Claim'
         }
     }
 }
