@@ -190,6 +190,45 @@ class InvoiceProcessor:
                     'amount': round(total_amount, 2)
                 })
         
+        elif self.brand_name == 'Philips':
+            # Philips logic - group by Category column
+            category_column = 'Category'
+            
+            if category_column in asc_data.columns and not asc_data[category_column].isna().all():
+                category_groups = asc_data.groupby(category_column)
+                
+                for category, group in category_groups:
+                    category_str = str(category) if not pd.isna(category) else "Services"
+                    
+                    # Quantity is the count of rows for this category
+                    total_qty = len(group)
+                    
+                    # Amount from Final Amount column
+                    total_amount = 0.0
+                    if 'Final Amount' in group.columns:
+                        total_amount = float(group['Final Amount'].sum())
+                    
+                    items.append({
+                        'description': category_str,
+                        'sac_code': '998715',
+                        'quantity': total_qty,
+                        'amount': round(total_amount, 2)
+                    })
+            else:
+                # Fallback: single service row
+                total_qty = len(asc_data)
+                
+                total_amount = 0.0
+                if 'Final Amount' in asc_data.columns:
+                    total_amount = float(asc_data['Final Amount'].sum())
+                
+                items.append({
+                    'description': 'Services',
+                    'sac_code': '998715',
+                    'quantity': total_qty,
+                    'amount': round(total_amount, 2)
+                })
+        
         return items
     
     def _extract_invoice_month(self, asc_data):
@@ -218,7 +257,7 @@ class InvoiceProcessor:
         def round_decimal(value):
             return Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # Check if it's a freelancer (for Harman)
+        # Check if it's a freelancer (for Harman only)
         is_freelancer = brand_name == 'Harman' and 'Free Lancer' in str(asc_name)
         
         if brand_name == 'Amazon':
@@ -229,6 +268,10 @@ class InvoiceProcessor:
             total_qty = len(asc_data)  # Total row count
             total_amount = float(asc_data['Call Charge'].sum()) if 'Call Charge' in asc_data.columns else 0.0
             total_cod = 0.0  # Harman doesn't have COD
+        elif brand_name == 'Philips':
+            total_qty = len(asc_data)  # Total row count (sum of rows)
+            total_amount = float(asc_data['Final Amount'].sum()) if 'Final Amount' in asc_data.columns else 0.0
+            total_cod = 0.0  # Philips doesn't have COD
         else:
             total_qty = len(asc_data)
             total_amount = 0.0
@@ -247,8 +290,8 @@ class InvoiceProcessor:
         # Calculate invoice amount
         invoice_amount_dec = round_decimal(total_amount_dec + igst_dec)
         
-        # For Harman, net amount is same as invoice amount (no COD deduction)
-        if brand_name == 'Harman':
+        # For Harman and Philips, net amount is same as invoice amount (no COD deduction)
+        if brand_name in ['Harman', 'Philips']:
             net_amount_dec = invoice_amount_dec
         else:
             net_amount_dec = round_decimal(invoice_amount_dec - total_cod_dec)
@@ -256,12 +299,12 @@ class InvoiceProcessor:
         # Convert back to float for the rest of the code
         totals = {
             'total_qty': int(total_qty),
-            'total_amount': float(total_amount_dec),  # This is the amount WITHOUT GST
+            'total_amount': float(total_amount_dec),
             'total_cod': float(total_cod_dec),
             'igst': float(igst_dec),
-            'cgst': 0.0,  # Always 0 for both brands
-            'sgst': 0.0,  # Always 0 for both brands
-            'invoice_amount': float(invoice_amount_dec),  # This is amount + GST
+            'cgst': 0.0,
+            'sgst': 0.0,
+            'invoice_amount': float(invoice_amount_dec),
             'net_amount': float(net_amount_dec),
             'is_freelancer': is_freelancer,
             'brand': brand_name
@@ -332,16 +375,18 @@ class InvoiceProcessor:
         )
         
         # Define light peach color fill
-        peach_fill = PatternFill(start_color='FFFFE5CC',  # Light peach color
+        peach_fill = PatternFill(start_color='FFFFE5CC',
                                 end_color='FFFFE5CC',
                                 fill_type='solid')
         
         # ===== INVOICE TITLE BASED ON BRAND =====
         if invoice_data.get('brand') == 'Harman':
             invoice_title = "Bill of Supply"
+        elif invoice_data.get('brand') == 'Philips':
+            invoice_title = "Tax Invoice"
         else:
             invoice_title = "Tax Invoice"
-        
+
         ws.merge_cells('A1:D1')
         ws['A1'] = invoice_title
         ws['A1'].font = Font(bold=True, size=14)
@@ -424,9 +469,11 @@ class InvoiceProcessor:
         # ===== MONTH TITLE - MERGED =====
         if invoice_data.get('brand') == 'Harman':
             month_title = f"Harman Invoice Month of {invoice_data['invoice_month']}"
+        elif invoice_data.get('brand') == 'Philips':
+            month_title = f"Philips Invoice Month of {invoice_data['invoice_month']}"
         else:
             month_title = f"Amazon Invoice Month of {invoice_data['invoice_month']}"
-        
+
         ws.merge_cells('A10:D10')
         ws['A10'] = month_title
         ws['A10'].font = Font(bold=True)
@@ -565,7 +612,7 @@ class InvoiceProcessor:
         invoice_amount_cell.fill = peach_fill  # Add peach fill
         
         # Only show Advance Received (COD) and Net Amount for Amazon
-        if invoice_data.get('brand') != 'Harman':
+        if invoice_data.get('brand') == 'Amazon':
             # Advance Received (COD) Row
             cod_row = gst_start + 4
             ws.merge_cells(f'A{cod_row}:B{cod_row}')
@@ -599,7 +646,7 @@ class InvoiceProcessor:
             
             words_start_row = net_row + 1
         else:
-            # For Harman, skip COD and Net Amount rows, start words after Invoice Amount
+            # For Harman and Philips, skip COD and Net Amount rows, start words after Invoice Amount
             words_start_row = invoice_row + 1
         
         # ===== AMOUNT IN WORDS =====
@@ -619,16 +666,17 @@ class InvoiceProcessor:
         
         # ===== DECLARATION AND TERMS =====
         declaration_row = words_row + 2
-        
+
         # Merge A:B for declaration
         ws.merge_cells(f'A{declaration_row}:B{declaration_row+8}')
-        
+
         # Use brand-specific declaration
         if invoice_data.get('brand') == 'Harman':
             declaration_text = "Declaration:- We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\nTerms: * In case of non reflection of the GST amount in GSTR-2B of RV Solutions Pvt. Ltd. within 30th-June of Next Financial year, we agree to pay RV Solutions Pvt. Ltd. the GST amount along with interest @24% p.a. on delayed payment."
         else:
+            # Amazon and Philips use the same declaration
             declaration_text = "Declaration:- We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.\n\n* In case of non reflection of the GST amount in GSTR-2B of RV Solutions Pvt. Ltd. within 30th-June of Next Financial year, we agree to pay RV Solutions Pvt. Ltd. the GST amount along with interest @18% p.a. on delayed payment."
-        
+
         declaration_cell = ws.cell(row=declaration_row, column=1, value=declaration_text)
         declaration_cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
         for row in range(declaration_row, declaration_row + 9):

@@ -392,6 +392,8 @@ def main():
                     # Determine amount column based on brand
                     if selected_brand == 'Harman':
                         amount_column = 'Call Charge'
+                    elif selected_brand == 'Philips':
+                        amount_column = 'Final Amount'
                     else:
                         amount_column = 'Earning'
                     
@@ -408,7 +410,7 @@ def main():
                                 break
                         if not amount_column_found:
                             total_amount = 0
-                            st.warning(f"⚠️ Amount column not found. Tried: Earning, Call Charge, Amount")
+                            st.warning(f"⚠️ Amount column not found. Tried: Earning, Call Charge, Final Amount")
                     
                     st.metric("Total ASCs", total_ascs)
                     st.metric("Total Records", total_records)
